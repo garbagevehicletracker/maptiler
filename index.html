@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Location Tracking with MapTiler</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            height: 90vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZ2FyYmFnZXZlaGljbGV0cmFja2VyIiwiYSI6ImNsb3Y0cjNnbzByMWsyanFkNDJ5eTE3MWUifQ.H-GfUat8Own4dyaYg-Gfjg';
+
+        // Initialize the map
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'https://api.maptiler.com/maps/streets/style.json?key=zUTdCmGTtzJ3UFC141w5',
+            center: [23.2193721, 87.0582291],
+            zoom: 18
+        });
+
+        function setInitialLocation() {
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    // Set the map center to the user's current location
+                    map.setCenter([position.coords.longitude, position.coords.latitude]);
+                },
+                error => console.error('Error getting location:', error),
+                { enableHighAccuracy: true }
+            );
+        }
+
+        // Call the function to set the initial location
+        setInitialLocation();
+        // Array to store coordinates
+        var allCoordinates = [];
+
+        // Function to update the map with polyline and live location
+        function updateMap(newCoordinate) {
+            // Update the array with the new coordinate
+            allCoordinates.push(newCoordinate);
+
+            // Draw polyline with all coordinates
+            map.getSource('polyline').setData({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: allCoordinates.map(coord => [coord.longitude, coord.latitude])
+                }
+            });
+
+            // Update live location marker
+            map.getSource('live-location').setData({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [newCoordinate.longitude, newCoordinate.latitude]
+                }
+            });
+        }
+
+        // Function to fetch live location from the Geolocation API
+        function getLiveLocation() {
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    var liveCoordinate = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+
+                    // Update the map with live location
+                    updateMap(liveCoordinate);
+                },
+                error => console.error('Error getting location:', error),
+                { enableHighAccuracy: true }
+            );
+
+            // Schedule the next update after 1000 milliseconds (1 second)
+            setTimeout(getLiveLocation, 1000);
+        }
+
+        // Initialize the map with sources and layers
+        map.on('load', function () {
+            // Add a source for the polyline
+            map.addSource('polyline', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: []
+                    }
+                }
+            });
+
+            // Add a layer for the polyline
+            map.addLayer({
+                id: 'polyline',
+                type: 'line',
+                source: 'polyline',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#888',
+                    'line-width': 8
+                }
+            });
+
+            // Add a source for the live location
+            map.addSource('live-location', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [0, 0]
+                    }
+                }
+            });
+
+            // Add a layer for the live location marker
+            map.addLayer({
+                id: 'live-location',
+                type: 'circle',
+                source: 'live-location',
+                paint: {
+                    'circle-color': '#f00',
+                    'circle-radius': 10
+                }
+            });
+
+            // Start fetching live location
+            getLiveLocation();
+        });
+    </script>
+</body>
+
+</html>
